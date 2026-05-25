@@ -88,7 +88,6 @@ function AdotadoView() {
   const [file, setFile] = useState<File | null>(null);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [hours, setHours] = useState<Hour[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +101,6 @@ function AdotadoView() {
     ]);
     setIncomes((inc ?? []) as Income[]);
     setHours((hrs ?? []) as Hour[]);
-    setMessages((msgs ?? []) as Message[]);
 
     const unread = (msgs ?? []).filter((m: any) => !m.read_at).map((m: any) => m.id);
     if (unread.length) {
