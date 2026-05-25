@@ -38,7 +38,7 @@ function Index() {
             </div>
           </div>
           <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
-            <p className="mb-4 text-sm font-medium text-muted-foreground">Níveis de apoio</p>
+            <p className="mb-4 text-sm font-medium text-muted-foreground">Níveis de apoio (de acordo com a renda familiar)</p>
             <div className="grid gap-3">
               {(Object.keys(TIER_META) as Array<keyof typeof TIER_META>).map((k) => {
                 const m = TIER_META[k];

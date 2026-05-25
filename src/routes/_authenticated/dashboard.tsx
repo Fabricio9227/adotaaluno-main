@@ -428,9 +428,6 @@ function EmpresaView() {
   const [hours, setHours] = useState("");
   const [desc, setDesc] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msgTo, setMsgTo] = useState("");
-  const [msgText, setMsgText] = useState("");
-  const [msgBusy, setMsgBusy] = useState(false);
   const [adopting, setAdopting] = useState<string | null>(null);
 
   const load = async () => {
@@ -511,21 +508,6 @@ function EmpresaView() {
     toast.success("Horas registradas!");
     setHours(""); setDesc("");
     load();
-  };
-
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!msgTo) return toast.error("Selecione um adotado");
-    const text = msgText.trim();
-    if (text.length < 1 || text.length > 1000) return toast.error("Mensagem entre 1 e 1000 caracteres");
-    setMsgBusy(true);
-    const { error } = await supabase.from("messages").insert({
-      company_id: user!.id, adotado_id: msgTo, content: text,
-    });
-    setMsgBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Recado enviado!");
-    setMsgText("");
   };
 
   const adopt = async (adotadoId: string) => {

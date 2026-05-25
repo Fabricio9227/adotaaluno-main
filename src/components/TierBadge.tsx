@@ -6,10 +6,10 @@ export const TIER_META: Record<
   Tier,
   { label: string; color: string; icon: typeof Award; range: string }
 > = {
-  bronze: { label: "Bronze", color: "bg-bronze", range: "até R$ 2.000", icon: Medal },
-  prata: { label: "Prata", color: "bg-prata", range: "R$ 2.001 – R$ 5.000", icon: Award },
-  ouro: { label: "Ouro", color: "bg-ouro", range: "R$ 5.001 – R$ 10.000", icon: Trophy },
-  diamante: { label: "Diamante", color: "bg-diamante", range: "acima de R$ 10.000", icon: Gem },
+  bronze: { label: "Bronze", color: "bg-bronze", range: "R$ 7.000,01 - R$ 10.000", icon: Medal },
+  prata: { label: "Prata", color: "bg-prata", range: "R$ 4.500,01 - R$ 7.000", icon: Award },
+  ouro: { label: "Ouro", color: "bg-ouro", range: "R$ 2.000,01 - R$ 4.500", icon: Trophy },
+  diamante: { label: "Diamante", color: "bg-diamante", range: "R$ 2.000", icon: Gem },
 };
 
 export function TierBadge({ tier, size = "md" }: { tier: Tier; size?: "sm" | "md" | "lg" }) {
