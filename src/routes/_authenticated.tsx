@@ -24,9 +24,9 @@ function AuthGuard() {
     );
   }
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={false} >
       {/* Mobile floating trigger: visible only on small screens */}
-      <div className="fixed left-4 top-4 z-50 md:hidden">
+      <div className="fixed left-4 top-4 z-50 md:hidden ">
         <SidebarTrigger />
       </div>
       <div className="flex min-h-screen w-full">

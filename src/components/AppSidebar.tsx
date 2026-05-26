@@ -46,13 +46,13 @@ export function AppSidebar() {
 
   return (
       <Sidebar collapsible="icon" className="bg-black text-white">
-      <SidebarHeader>
+      <SidebarHeader className="bg-black text-white">
         {state === "collapsed" ? (
             <span className="grid h-9 w-9 place-items-center rounded-full ">
               <SidebarTrigger />
             </span>
         ) : (
-          <div className="flex items-center gap-2 px-2 py-2">
+          <div className="flex items-center py-2">
             <span className="grid h-9 w-9 place-items-center rounded-full ">
               <SidebarTrigger />
             </span>
@@ -62,7 +62,7 @@ export function AppSidebar() {
         )}
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="bg-black text-white">
         <SidebarGroup>
           <SidebarGroupLabel>Navegação</SidebarGroupLabel>
           <SidebarGroupContent>

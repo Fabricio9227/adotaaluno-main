@@ -74,13 +74,6 @@ function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-type Message = {
-  id: string;
-  content: string;
-  created_at: string;
-  read_at: string | null;
-};
-
 function AdotadoView() {
   const { user, profile, refreshProfile } = useAuth();
   const isAdopted = !!profile?.company_id;
