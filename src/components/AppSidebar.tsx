@@ -35,7 +35,7 @@ export function AppSidebar() {
       if (error) {
         // Fallback: trigger OAuth sign-in via Lovable
         await lovable.auth.signInWithOAuth("google", {
-          redirect_uri: window.location.origin ,
+          redirect_uri: window.location.origin,
         });
       }
     } catch {
