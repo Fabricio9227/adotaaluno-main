@@ -12,9 +12,14 @@ function AuthGuard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && !user) navigate({ to: "/auth" });
-  }, [user, loading, navigate]);
+useEffect(() => {
+  if (!loading && !user) {
+    navigate({ to: "/auth" });
+  } else if (!loading && user && window.location.pathname === "/") {
+    // BIZU: Se o cara tá logado e tá na Home, empurra ele pro Dashboard real
+    navigate({ to: "/dashboard" });
+  }
+}, [user, loading, navigate]);
 
   if (loading || !user) {
     return (

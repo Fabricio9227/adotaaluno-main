@@ -29,13 +29,28 @@ const ACCEPTED_EXT = [".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg"];
 const ACCEPT_ATTR = ".pdf,.doc,.docx,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const MAX_FILE_MB = 5;
 
-function Dashboard() {
-  const { profile, loading } = useAuth();
+export default function Dashboard() {
+  const { profile, loading, user } = useAuth();
 
-  if (loading || !profile) {
-    return <div className="mx-auto max-w-6xl px-6 py-10 text-muted-foreground">Carregando perfil...</div>;
+  // 1. Enquanto o Supabase estiver buscando o usuário OR o perfil no banco, segura no loading
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-6xl px-6 py-10 text-muted-foreground">
+        Carregando dashboard...
+      </div>
+    );
   }
 
+  // 2. Se o loading terminou e mesmo assim não achou o profile na tabela do banco:
+  if (!profile) {
+    return (
+      <div className="mx-auto max-w-6xl px-6 py-10 text-center">
+        <h2 className="text-xl font-semibold text-muted-foreground">Aguarde...</h2>
+      </div>
+    );
+  }
+
+  // 3. SE CHEGOU AQUI, O BANCO RESPONDEU! Traz o dashboard dinâmico real:
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <div className="mb-8">
@@ -44,6 +59,8 @@ function Dashboard() {
         </p>
         <h1 className="font-serif text-4xl">Olá, {profile.full_name}</h1>
       </div>
+      
+      {/* Decisão dinâmica baseada no dado real do banco de dados */}
       {profile.role === "empresa" ? <EmpresaView /> : <AdotadoView />}
     </main>
   );
@@ -212,7 +229,7 @@ function AdotadoView() {
           <h2 className="mt-4 font-serif text-3xl text-card-foreground">Você está na lista de espera</h2>
           <p className="mt-2 text-card-foreground/70 max-w-md mx-auto">
             Seu perfil está visível para todas as empresas. Assim que uma empresa adotar você,
-            seu painel completo será liberado com envio de renda, horas de estágio, recados e tarefas.
+            seu painel completo será liberado com Envio de renda, Categoria, Horas mensais, Recados e Tarefas.
           </p>
           <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm text-card-foreground">
             <Lock className="h-4 w-4" /> Adoção pendente
@@ -221,7 +238,7 @@ function AdotadoView() {
 
         <section className="rounded-2xl border border-border bg-card p-6 opacity-60">
           <p className="text-sm text-card-foreground/70">
-            Recursos bloqueados: envio de renda, categoria, horas mensais, recados e tarefas.
+            Recursos bloqueados: Envio de renda, Categoria, Horas mensais, Recados e Tarefas.
           </p>
         </section>
       </div>
@@ -308,14 +325,14 @@ function AdotadoView() {
           </div>
         ) : (
           <form onSubmit={submitIncome} className="mt-4 space-y-3">
-            <div>
+            <div className="text-muted-foreground">
               <Label htmlFor="amt">Valor (R$)</Label>
               <Input
                 id="amt" type="number" step="0.01" min="0" required
                 value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00"
               />
             </div>
-            <div>
+            <div className="text-muted-foreground">
               <Label htmlFor="proof-file">Comprovante de renda</Label>
               <Input
                 id="proof-file" type="file" required
@@ -344,7 +361,7 @@ function AdotadoView() {
         </div>
 
         {incomes.length > 0 && (
-          <div className="mt-6">
+          <div className="mt-6 text-muted-foreground">
             <p className="mb-2 text-sm font-medium">Histórico</p>
             <ul className="space-y-2">
               {incomes.slice(0, 6).map((i) => (
@@ -370,7 +387,7 @@ function AdotadoView() {
           <p className="text-sm text-muted-foreground">Total acumulado</p>
           <p className="mt-2 font-serif text-5xl">{totalHours.toFixed(1)}h</p>
         </div>
-        <div className="mt-6">
+        <div className="mt-6 text-muted-foreground">
           <p className="mb-2 text-sm font-medium">Registros recentes</p>
           {hours.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sua empresa ainda não registrou horas.</p>
@@ -619,7 +636,7 @@ function EmpresaView() {
         </section>
 
         <section className="rounded-2xl border border-border bg-card p-6">
-          <div className="mb-4 flex items-center gap-2 text-muted-foreground">
+          <div className="mb-4 flex items-center gap-2 text-white">
             <Clock className="h-4 w-4" />
             <h2 className="font-medium">Registrar horas</h2>
           </div>

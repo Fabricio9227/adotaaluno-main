@@ -49,7 +49,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body suppressHydrationWarning={true}>
         {children}
         <Scripts />
       </body>
