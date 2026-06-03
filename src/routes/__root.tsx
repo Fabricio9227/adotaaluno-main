@@ -37,6 +37,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap",
       },
+    { rel: "icon", href: "src/images/gemini-svg.svg" },
     ],
   }),
   shellComponent: RootShell,
