@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { TierBadge, TIER_META, type Tier } from "@/components/TierBadge";
-import { Clock, DollarSign, Users, FileText, Check, X, Paperclip, Camera, MessageSquare, Send, Lock, HandHeart } from "lucide-react";
+import { Clock, DollarSign, Users, FileText, Check, X, Paperclip, Camera, Lock, HandHeart } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -75,6 +75,13 @@ function StatusBadge({ status }: { status: SubmissionStatus }) {
   return <Badge className={map[status].className}>{map[status].label}</Badge>;
 }
 
+function calcTier(amount: number): Tier {
+  if (amount <= 2000) return "diamante";
+  if (amount <= 4500) return "ouro";
+  if (amount <= 7000) return "prata";
+  return "bronze";
+}
+
 /* ---------------- Adotado ---------------- */
 
 type Income = {
@@ -84,6 +91,7 @@ type Income = {
   submitted_at: string;
   status: SubmissionStatus;
   document_url: string | null;
+  rejection_reason: string | null;
 };
 type Hour = { id: string; hours: number; description: string | null; logged_at: string };
 
@@ -105,11 +113,11 @@ function AdotadoView() {
   const load = async () => {
     if (!user) return;
     const [{ data: inc }, { data: hrs }, { data: msgs }] = await Promise.all([
-      supabase.from("income_submissions").select("id, amount, tier, submitted_at, status, document_url").eq("user_id", user.id).order("submitted_at", { ascending: false }),
+      supabase.from("income_submissions").select("id, amount, tier, submitted_at, status, document_url, rejection_reason").eq("user_id", user.id).order("submitted_at", { ascending: false }),
       supabase.from("volunteer_hours").select("*").eq("adotado_id", user.id).order("logged_at", { ascending: false }),
       supabase.from("messages").select("id, content, created_at, read_at").eq("adotado_id", user.id).order("created_at", { ascending: false }).limit(50),
     ]);
-    setIncomes((inc ?? []) as Income[]);
+    setIncomes((inc ?? []) as unknown as Income[]);
     setHours((hrs ?? []) as Hour[]);
 
     const unread = (msgs ?? []).filter((m: any) => !m.read_at).map((m: any) => m.id);
@@ -146,7 +154,9 @@ function AdotadoView() {
 
   const currentMonth = monthKey(new Date());
   const thisMonthSubmission = incomes.find(
-    (i) => monthKey(new Date(i.submitted_at)) === currentMonth,
+    (i) => monthKey(new Date(i.submitted_at)) === currentMonth
+    && i.status !== "rejeitado",
+
   );
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,9 +177,14 @@ function AdotadoView() {
   };
 
   const submitIncome = async (e: React.FormEvent) => {
+
+
     e.preventDefault();
     if (thisMonthSubmission) return toast.error("Você já enviou sua renda deste mês.");
-    const parsed = z.coerce.number().positive().max(10_000_000).safeParse(amount);
+        const normalized = amount
+  .replace(/\./g, "")   // remove pontos de milhar: "2.000" → "2000"
+  .replace(",", ".");   // troca vírgula decimal: "2,50" → "2.50"
+    const parsed = z.coerce.number().positive().max(10_000_000).safeParse(normalized);
     if (!parsed.success) return toast.error("Informe um valor válido");
     if (!file) return toast.error("Anexe o comprovante de renda");
 
@@ -186,12 +201,12 @@ function AdotadoView() {
       return toast.error("Falha no upload: " + upErr.message);
     }
 
-    const { error } = await supabase.from("income_submissions").insert({
-      user_id: user!.id,
-      amount: parsed.data,
-      tier: "bronze",
-      document_url: path,
-    });
+const { error } = await supabase.from("income_submissions").insert({
+  user_id: user!.id,
+  amount: parsed.data,
+  tier: calcTier(parsed.data),  // <- dinâmico
+  document_url: path,
+});
     setBusy(false);
     if (error) {
       if (error.code === "23505") return toast.error("Você já enviou sua renda deste mês.");
@@ -319,6 +334,11 @@ function AdotadoView() {
                 <FileText className="mr-2 h-4 w-4" /> Ver comprovante
               </Button>
             )}
+            {thisMonthSubmission.rejection_reason && (
+              <p className="mt-2 text-sm text-destructive">
+                Motivo da rejeição: {thisMonthSubmission.rejection_reason}
+              </p>
+            )}
             <p className="mt-3 text-xs text-muted-foreground">
               Você poderá enviar uma nova renda no próximo mês.
             </p>
@@ -328,7 +348,7 @@ function AdotadoView() {
             <div className="text-muted-foreground">
               <Label htmlFor="amt">Valor (R$)</Label>
               <Input
-                id="amt" type="number" step="0.01" min="0" required
+                id="amt" type="text" inputMode="decimal" step="0.01" min="0" required
                 value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00"
               />
             </div>
@@ -369,6 +389,9 @@ function AdotadoView() {
                   <span>R$ {Number(i.amount).toFixed(2)}</span>
                   <div className="flex items-center gap-2">
                     {i.status === "aprovado" ? <TierBadge tier={i.tier} size="sm" /> : <StatusBadge status={i.status} />}
+                    {i.status === "rejeitado" && i.rejection_reason && (
+  <p className="mt-1 text-xs text-destructive/80">{i.rejection_reason}</p>
+)}
                     <span className="text-xs text-muted-foreground">{new Date(i.submitted_at).toLocaleDateString("pt-BR")}</span>
                   </div>
                 </li>
@@ -414,7 +437,14 @@ function AdotadoView() {
 
 /* ---------------- Empresa ---------------- */
 
-type Adotado = { id: string; full_name: string };
+type Adotado = {
+  id: string;
+  full_name: string;
+  birth_date: string | null;
+  parent_names: string | null;
+  phone: string | null;
+  email?: string | null;
+};
 type AdotadoStats = Adotado & { tier?: Tier; totalHours: number };
 type PendingSubmission = {
   id: string;
@@ -442,10 +472,10 @@ function EmpresaView() {
     if (!user) return;
     const [{ data: profs }, { data: wait }] = await Promise.all([
       supabase.from("profiles").select("id, full_name").eq("company_id", user.id),
-      supabase.from("profiles").select("id, full_name").eq("role", "adotado").is("company_id", null).order("full_name"),
+      supabase.from("profiles").select("id, full_name, birth_date, parent_names, phone").eq("role", "adotado").is("company_id", null).order("full_name"),
     ]);
     const list = (profs ?? []) as Adotado[];
-    setWaiting((wait ?? []) as Adotado[]);
+    setWaiting((wait ?? []) as unknown as Adotado[]);
 
     const stats = await Promise.all(
       list.map(async (a) => {
@@ -483,15 +513,22 @@ function EmpresaView() {
 
   useEffect(() => { load(); }, [user]);
 
-  const decide = async (id: string, status: "aprovado" | "rejeitado") => {
-    const { error } = await supabase
-      .from("income_submissions")
-      .update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user!.id })
-      .eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success(status === "aprovado" ? "Renda aprovada" : "Renda rejeitada");
-    load();
-  };
+  const decide = async (id: string, status: "aprovado" | "rejeitado", reason?: string) => {
+  const { error } = await supabase
+    .from("income_submissions")
+    .update({
+      status,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: user!.id,
+      ...(reason ? { rejection_reason: reason } : {}),
+    } as any)
+    .eq("id", id);
+  if (error) return toast.error(error.message);
+  toast.success(status === "aprovado" ? "Renda aprovada" : "Renda rejeitada");
+  setRejectId(null);
+  setRejectReason("");
+  load();
+};
 
   const openProof = async (path: string) => {
     const { data, error } = await supabase.storage.from("income-proofs").createSignedUrl(path, 60);
@@ -534,29 +571,91 @@ function EmpresaView() {
     load();
   };
 
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [viewingAluno, setViewingAluno] = useState<Adotado | null>(null);
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center gap-2 text-card-foreground/70">
-          <HandHeart className="h-4 w-4" />
-          <h2 className="font-medium">Lista de espera ({waiting.length})</h2>
+  <div className="mb-4 flex items-center gap-2 text-card-foreground/70">
+    <HandHeart className="h-4 w-4" />
+    <h2 className="font-medium">Lista de espera ({waiting.length})</h2>
+  </div>
+  {waiting.length === 0 ? (
+    <p className="text-sm text-card-foreground/70">Nenhum aluno aguardando adoção no momento.</p>
+  ) : (
+    <ul className="grid gap-2 sm:grid-cols-2">
+      {waiting.map((a) => (
+        <li key={a.id} className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+          <span className="font-medium text-foreground">{a.full_name}</span>
+          <div className="flex items-center gap-2">
+
+            <Button size="sm" variant="outline"  onClick={async () => {
+  const { data } = await (supabase as any).rpc("get_user_email", { user_id: a.id });
+  const email = typeof data === "string" ? data : null;
+  setViewingAluno({ ...a, email });
+}}>
+              Ver informações
+            </Button>
+
+
+            <Button size="sm" onClick={() => adopt(a.id)} disabled={adopting === a.id}>
+              <HandHeart className="mr-1 h-4 w-4" />
+              {adopting === a.id ? "Adotando..." : "Adotar"}
+            </Button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  {/* Modal de informações do aluno */}
+  {viewingAluno && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+        <h3 className="font-serif text-xl text-white">Informações do aluno</h3>
+        <p className="mt-1 text-xs text-muted-foreground mb-4">
+          Dados fornecidos no cadastro.
+        </p>
+        <ul className="space-y-3 text-sm">
+          <li className="flex flex-col gap-0.5">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">Nome completo</span>
+            <span className="text-white font-medium">{viewingAluno.full_name}</span>
+          </li>
+          <li className="flex flex-col gap-0.5">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">Data de nascimento</span>
+            <span className="text-white font-medium">
+              {viewingAluno.birth_date
+                ? new Date(viewingAluno.birth_date).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+                : "Não informado"}
+            </span>
+          </li>
+          <li className="flex flex-col gap-0.5">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">Nome completo dos pais</span>
+            <span className="text-white font-medium">{viewingAluno.parent_names ?? "Não informado"}</span>
+          </li>
+          <li className="flex flex-col gap-0.5">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">Telefone para contato</span>
+            <span className="text-white font-medium">{viewingAluno.phone ?? "Não informado"}</span>
+          </li>
+          <li className="flex flex-col gap-0.5">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">E-mail para contato</span>
+            <span className="text-white font-medium">{viewingAluno.email ?? "Não informado"}</span>
+          </li>
+        </ul>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setViewingAluno(null)}>
+            Fechar
+          </Button>
+          <Button onClick={() => { adopt(viewingAluno.id); setViewingAluno(null); }}>
+            <HandHeart className="mr-1 h-4 w-4" /> Adotar
+          </Button>
         </div>
-        {waiting.length === 0 ? (
-          <p className="text-sm text-card-foreground/70">Nenhum aluno aguardando adoção no momento.</p>
-        ) : (
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {waiting.map((a) => (
-              <li key={a.id} className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
-                <span className="font-medium text-foreground">{a.full_name}</span>
-                <Button size="sm" onClick={() => adopt(a.id)} disabled={adopting === a.id}>
-                  <HandHeart className="mr-1 h-4 w-4" />
-                  {adopting === a.id ? "Adotando..." : "Adotar"}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      </div>
+    </div>
+  )}
+</section>
 
       <section className="rounded-2xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center gap-2 text-muted-foreground">
@@ -588,7 +687,7 @@ function EmpresaView() {
                     <Button size="sm" onClick={() => decide(p.id, "aprovado")}>
                       <Check className="mr-1 h-4 w-4" /> Aprovar
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => decide(p.id, "rejeitado")}>
+                    <Button size="sm" variant="destructive" onClick={() => setRejectId(p.id)}>
                       <X className="mr-1 h-4 w-4" /> Rejeitar
                     </Button>
                   </div>
@@ -666,8 +765,42 @@ function EmpresaView() {
           </form>
         </section>
       </div>
-
+{rejectId && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+      <h3 className="font-serif text-xl text-white">Rejeitar comprovante</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Informe o motivo da rejeição para o aluno.
+      </p>
+      <Textarea
+      
+        className="mt-4 text-white"
+        rows={4}
+        maxLength={500}
+        placeholder="Ex: Documento ilegível, valor divergente..."
+        value={rejectReason}
+        onChange={(e) => setRejectReason(e.target.value)}
+      />
+      <div className="mt-4 flex justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={() => { setRejectId(null); setRejectReason(""); }}
+        >
+          Cancelar
+        </Button>
+        <Button
+          variant="destructive"
+          disabled={!rejectReason.trim()}
+          onClick={() => decide(rejectId, "rejeitado", rejectReason.trim())}
+        >
+          <X className="mr-1 h-4 w-4" /> Confirmar rejeição
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
       
     </div>
   );
+  
 }

@@ -150,6 +150,9 @@ function SignupForm() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [parentNames, setParentNames] = useState("");
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -157,13 +160,27 @@ function SignupForm() {
     const parsed = signupSchema.safeParse({ full_name: fullName, email, password, role });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
 
+    if (role === "adotado") {
+      if (!birthDate) return toast.error("Informe a data de nascimento.");
+      if (!parentNames.trim()) return toast.error("Informe o nome completo dos pais.");
+      if (!phone.trim()) return toast.error("Informe o telefone para contato.");
+    }
+
     setBusy(true);
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { full_name: fullName, role },
+        data: {
+          full_name: fullName,
+          role,
+          ...(role === "adotado" && {
+            birth_date: birthDate,
+            parent_names: parentNames.trim(),
+            phone: phone.trim(),
+          }),
+        },
       },
     });
     setBusy(false);
@@ -197,18 +214,51 @@ function SignupForm() {
             </p>
           )}
         </div>
+
         <div>
           <Label htmlFor="name">{role === "empresa" ? "Nome da empresa" : "Nome completo"}</Label>
           <Input id="name" required value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={120} />
         </div>
+
         <div>
           <Label htmlFor="email2">E-mail</Label>
           <Input id="email2" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} maxLength={255} />
         </div>
+
         <div>
           <Label htmlFor="pwd2">Senha</Label>
           <Input id="pwd2" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
+
+        {/* Campos extras apenas para alunos */}
+        {role === "adotado" && (
+          <>
+            <div>
+              <Label htmlFor="birth_date">Data de nascimento</Label>
+              <Input
+                id="birth_date" type="date" required
+                value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="parent_names">Nome completo dos pais</Label>
+              <Input
+                id="parent_names" required maxLength={240}
+                placeholder="Nome do pai / Nome da mãe"
+                value={parentNames} onChange={(e) => setParentNames(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="phone">Telefone para contato</Label>
+              <Input
+                id="phone" type="tel" required maxLength={20}
+                placeholder="(11) 99999-9999"
+                value={phone} onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
         <Button type="submit" className="w-full" disabled={busy}>
           {busy ? "Criando..." : "Criar conta"}
         </Button>
