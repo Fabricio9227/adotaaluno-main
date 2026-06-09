@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTimeout(() => loadProfile(s.user.id), 0);
       } else {
         setProfile(null);
-      }
+      }       
     });
 
     supabase.auth.getSession().then(({ data }) => {

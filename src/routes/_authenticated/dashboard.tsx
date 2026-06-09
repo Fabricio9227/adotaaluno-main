@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +33,7 @@ const MAX_FILE_MB = 5;
 export default function Dashboard() {
   const { profile, loading, user } = useAuth();
 
-  // 1. Enquanto o Supabase estiver buscando o usuário OR o perfil no banco, segura no loading
+  // Enquanto o Supabase estiver buscando o usuário OR o perfil no banco, segura no loading
   if (loading) {
     return (
       <div className="mx-auto max-w-6xl px-6 py-10 text-muted-foreground">
@@ -41,7 +42,7 @@ export default function Dashboard() {
     );
   }
 
-  // 2. Se o loading terminou e mesmo assim não achou o profile na tabela do banco:
+  // Se o loading terminou e mesmo assim não achou o profile na tabela do banco:
   if (!profile) {
     return (
       <div className="mx-auto max-w-6xl px-6 py-10 text-center">
@@ -50,14 +51,14 @@ export default function Dashboard() {
     );
   }
 
-  // 3. SE CHEGOU AQUI, O BANCO RESPONDEU! Traz o dashboard dinâmico real:
+  // Traz o dashboard dinâmico real:
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="animate-fade-up mx-auto max-w-6xl px-6 py-10">
       <div className="mb-8">
-        <p className="text-sm uppercase tracking-wider text-muted-foreground">
+        <p className="text-sm uppercase tracking-wider text-muted-foreground font-bold">
           {profile.role === "empresa" ? "Painel da Empresa" : "Painel do Adotado"}
         </p>
-        <h1 className="font-serif text-4xl">Olá, {profile.full_name}</h1>
+        <h1 className="font-bold text-4xl">Olá, {profile.full_name}</h1>
       </div>
       
       {/* Decisão dinâmica baseada no dado real do banco de dados */}
@@ -100,6 +101,7 @@ function monthKey(d: Date) {
 }
 
 function AdotadoView() {
+  const [companyName, setCompanyName] = useState<string | null>(null);
   const { user, profile, refreshProfile } = useAuth();
   const isAdopted = !!profile?.company_id;
   const [amount, setAmount] = useState("");
@@ -124,6 +126,14 @@ function AdotadoView() {
     if (unread.length) {
       await supabase.from("messages").update({ read_at: new Date().toISOString() }).in("id", unread);
     }
+    if (profile?.company_id) {
+  const { data: company } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", profile.company_id)
+    .single();
+  setCompanyName(company?.full_name ?? null);
+}
   };
 
   useEffect(() => { load(); }, [user]);
@@ -237,7 +247,7 @@ const { error } = await supabase.from("income_submissions").insert({
   if (!isAdopted) {
     return (
       <div className="space-y-6">
-        <section className="rounded-2xl border-2 border-dashed border-primary/40 bg-card p-10 text-center">
+        <section className="animate-fade-up rounded-2xl border-2 border-dashed border-primary/40 bg-card p-10 text-center">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-primary/20 text-primary">
             <HandHeart className="h-8 w-8" />
           </div>
@@ -251,7 +261,7 @@ const { error } = await supabase.from("income_submissions").insert({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-border bg-card p-6 opacity-60">
+        <section className="animate-fade-up rounded-2xl border border-border bg-card p-6 opacity-60">
           <p className="text-sm text-card-foreground/70">
             Recursos bloqueados: Envio de renda, Categoria, Horas mensais, Recados e Tarefas.
           </p>
@@ -263,7 +273,7 @@ const { error } = await supabase.from("income_submissions").insert({
   return (
     <div className="space-y-6">
       {/* Profile card */}
-      <section className="rounded-2xl border border-border bg-card p-6">
+      <section className=" animate-fade-up rounded-2xl border border-border p-6 border-b bg-cover bg-center w-full" style={{ backgroundImage: "url('/src/images/BACKGROUND SITE (1).png')" }}>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
           <div className="relative">
             <Avatar className="h-24 w-24 border-4 border-primary/30">
@@ -286,7 +296,7 @@ const { error } = await supabase.from("income_submissions").insert({
           </div>
 
           <div className="flex-1">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Aluno adotado</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Aluno adotado {companyName && <span className="normal-case text-primary font-semibold">· {companyName}</span>}</p>
             <h2 className="font-serif text-3xl text-white">{profile?.full_name}</h2>
             <div className="mt-2">
               {approvedTier ? (
@@ -313,7 +323,7 @@ const { error } = await supabase.from("income_submissions").insert({
       </section>
 
       <div className="grid gap-6 md:grid-cols-2">
-      <section className="rounded-2xl border border-border bg-card p-6">
+      <section className="animate-fade-up rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-2 text-muted-foreground">
           <DollarSign className="h-4 w-4" />
           <h2 className="font-medium">Enviar renda mensal</h2>
@@ -401,7 +411,7 @@ const { error } = await supabase.from("income_submissions").insert({
         )}
       </section>
 
-      <section className="rounded-2xl border border-border bg-card p-6">
+      <section className="animate-fade-uprounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Clock className="h-4 w-4" />
           <h2 className="font-medium">Horas de estágio voluntário</h2>
@@ -577,7 +587,7 @@ function EmpresaView() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-border bg-card p-6">
+      <section className="animate-fade-up rounded-2xl border border-border bg-card p-6 bg-cover bg-center w-full" style={{ backgroundImage: "url('/src/images/BACKGROUND SITE (1).png')" }}>
   <div className="mb-4 flex items-center gap-2 text-card-foreground/70">
     <HandHeart className="h-4 w-4" />
     <h2 className="font-medium">Lista de espera ({waiting.length})</h2>
@@ -609,9 +619,9 @@ function EmpresaView() {
       ))}
     </ul>
   )}
-
-  {/* Modal de informações do aluno */}
-  {viewingAluno && (
+</section>
+{/* Modal de informações do aluno */}
+  {viewingAluno && createPortal (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
         <h3 className="font-serif text-xl text-white">Informações do aluno</h3>
@@ -653,11 +663,11 @@ function EmpresaView() {
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )}
-</section>
 
-      <section className="rounded-2xl border border-border bg-card p-6">
+      <section className="animate-fade-up rounded-2xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center gap-2 text-muted-foreground">
           <FileText className="h-4 w-4" />
           <h2 className="font-medium">Aprovações de renda pendentes ({pending.length})</h2>
@@ -699,42 +709,55 @@ function EmpresaView() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="rounded-2xl border border-border bg-card p-6">
-          <div className="mb-4 flex items-center gap-2 text-muted-foreground">
-            <Users className="h-4 w-4" />
-            <h2 className="font-medium">Alunos adotados ({adotados.length})</h2>
-          </div>
-          {adotados.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhum aluno se vinculou à sua empresa ainda.
-            </p>
-          ) : (
-            <div className="overflow-hidden rounded-xl border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-background text-left text-xs uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3">Aluno</th>
-                    <th className="px-4 py-3">Categoria</th>
-                    <th className="px-4 py-3 text-right">Horas</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {adotados.map((a) => (
-                    <tr key={a.id} className="border-t border-border">
-                      <td className="px-4 py-3 font-medium text-white">{a.full_name}</td>
-                      <td className="px-4 py-3">
-                        {a.tier ? <TierBadge tier={a.tier} size="sm" /> : <span className="text-xs text-muted-foreground">sem categoria</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-white">{a.totalHours.toFixed(1)}h</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-2xl border border-border bg-card p-6">
+<section className="animate-fade-uprounded-2xl border border-border bg-card p-6">
+  <div className="mb-4 flex items-center gap-2 text-muted-foreground">
+    <Users className="h-4 w-4" />
+    <h2 className="font-medium">Alunos adotados ({adotados.length})</h2>
+  </div>
+  {adotados.length === 0 ? (
+    <p className="text-sm text-muted-foreground">
+      Nenhum aluno se vinculou à sua empresa ainda.
+    </p>
+  ) : (
+    <div className="overflow-hidden rounded-xl border border-border">
+      <table className="w-full text-sm">
+        <thead className="bg-background text-left text-xs uppercase tracking-wider text-muted-foreground">
+          <tr>
+            <th className="px-4 py-3">Aluno</th>
+            <th className="px-4 py-3">Categoria</th>
+            <th className="px-4 py-3 text-right">Horas</th>
+            <th className="px-4 py-3 text-center">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {adotados.map((a) => (
+            <tr key={a.id} className="border-t border-border">
+              <td className="px-4 py-3 font-medium text-white">{a.full_name}</td>
+              <td className="px-4 py-3">
+                {a.tier ? <TierBadge tier={a.tier} size="sm" /> : <span className="text-xs text-muted-foreground">sem categoria</span>}
+              </td>
+              <td className="px-4 py-3 text-right font-mono text-white">{a.totalHours.toFixed(1)}h</td>
+              <td className="px-4 py-3 text-right">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    const { data } = await (supabase as any).rpc("get_user_email", { user_id: a.id });
+                    const email = typeof data === "string" ? data : null;
+                    setViewingAluno({ ...a, email });
+                  }}
+                >
+                  Ver informações
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</section>
+        <section className="animate-fade-up rounded-2xl border border-border bg-card p-6">
           <div className="mb-4 flex items-center gap-2 text-white">
             <Clock className="h-4 w-4" />
             <h2 className="font-medium">Registrar horas</h2>
@@ -765,7 +788,7 @@ function EmpresaView() {
           </form>
         </section>
       </div>
-{rejectId && (
+{rejectId && createPortal (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
     <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
       <h3 className="font-serif text-xl text-white">Rejeitar comprovante</h3>
@@ -797,7 +820,8 @@ function EmpresaView() {
         </Button>
       </div>
     </div>
-  </div>
+  </div>,
+  document.body
 )}
       
     </div>

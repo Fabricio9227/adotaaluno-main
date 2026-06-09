@@ -36,7 +36,7 @@ function AuthPage() {
     <div className="min-h-screen">
       <AppHeader />
       <main className="mx-auto max-w-md px-6 py-12">
-        <h1 className="font-serif text-4xl">Bem-vindo</h1>
+        <h1 className="font-bold text-4xl">Bem-vindo</h1>
         <p className="mt-1 text-muted-foreground">Entre ou crie sua conta para começar.</p>
 
         <Tabs defaultValue="login" className="mt-8">
