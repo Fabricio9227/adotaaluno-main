@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type PendingCompany = {
+export type PendingCompany = {
   id: string;
   full_name: string;
   cnpj: string | null;
@@ -27,7 +27,7 @@ type PendingCompany = {
   created_at: string;
 };
 
-function CompanyDetailModal({
+export function CompanyDetailModal({
   company,
   open,
   onClose,
@@ -158,12 +158,15 @@ function InfoRow({
 }
 
 function AdminPage() {
-  const { profile } = useAuth();
+  const { profile, loading } = useAuth() as any;
   const navigate = useNavigate();
 
+  // Só redireciona depois que o profile terminou de carregar
   useEffect(() => {
-    if (profile && (profile as any).role !== "admin") navigate({ to: "/dashboard" });
-  }, [profile]);
+    if (!loading && profile && profile.role !== "admin") {
+      navigate({ to: "/dashboard" });
+    }
+  }, [profile, loading]);
 
   const [pending, setPending] = useState<PendingCompany[]>([]);
   const [approved, setApproved] = useState<PendingCompany[]>([]);
@@ -218,7 +221,9 @@ function AdminPage() {
     load();
   };
 
-  if ((profile as any)?.role !== "admin") return null;
+  // Enquanto carrega, não renderiza nada (evita flash de redirect)
+  if (loading || !profile) return null;
+  if ((profile as any).role !== "admin") return null;
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10 space-y-8">

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -17,6 +17,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { TierBadge, TIER_META, type Tier } from "@/components/TierBadge";
 import { Clock, DollarSign, Users, FileText, Check, X, Paperclip, Camera, Lock, HandHeart } from "lucide-react";
+import { Building2, ExternalLink, Eye} from "lucide-react";
+import { type PendingCompany } from "./admin.tsx"
+import { CompanyDetailModal } from "@/components/CompanyDetailModal.tsx"
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -56,13 +59,13 @@ export default function Dashboard() {
     <main className="animate-fade-up mx-auto max-w-6xl px-6 py-10">
       <div className="mb-8">
         <p className="text-sm uppercase tracking-wider text-muted-foreground font-bold">
-          {profile.role === "empresa" ? "Painel da Empresa" : "Painel do Adotado"}
+          {profile.role === "empresa" ? "Painel da Empresa" : profile.role === "adotado" ? "Painel do Adotado" : "Painel do Administrador"}
         </p>
         <h1 className="font-bold text-4xl">Olá, {profile.full_name}</h1>
       </div>
       
       {/* Decisão dinâmica baseada no dado real do banco de dados */}
-      {profile.role === "empresa" ? <EmpresaView /> : <AdotadoView />}
+      {profile.role === "empresa" ? <EmpresaView /> : profile.role === "adotado" ? <AdotadoView /> : <AdminView />}
     </main>
   );
 }
@@ -724,7 +727,7 @@ function EmpresaView() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-<section className="animate-fade-uprounded-2xl border border-border bg-card p-6">
+<section className="animate-fade-up rounded-2xl border border-border bg-card p-6">
   <div className="mb-4 flex items-center gap-2 text-muted-foreground">
     <Users className="h-4 w-4" />
     <h2 className="font-medium">Alunos adotados ({adotados.length})</h2>
@@ -842,4 +845,227 @@ function EmpresaView() {
     </div>
   );
   
+}
+
+/* ---------------- Administrador ---------------- */
+
+function AdminView() {
+const { profile, loading } = useAuth() as any;
+  const navigate = useNavigate();
+
+  // Só redireciona depois que o profile terminou de carregar
+  useEffect(() => {
+    if (!loading && profile && profile.role !== "admin") {
+      navigate({ to: "/dashboard" });
+    }
+  }, [profile, loading]);
+
+  const [pending, setPending] = useState<PendingCompany[]>([]);
+  const [approved, setApproved] = useState<PendingCompany[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  // Modal state
+  const [selectedCompany, setSelectedCompany] = useState<PendingCompany | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalShowActions, setModalShowActions] = useState(false);
+
+  const openModal = (company: PendingCompany, showActions: boolean) => {
+    setSelectedCompany(company);
+    setModalShowActions(showActions);
+    setModalOpen(true);
+  };
+
+  const load = async () => {
+    const [{ data: pend }, { data: appr }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name, cnpj, phone, website, address, created_at")
+        .eq("role", "empresa")
+        .eq("approved", false)
+        .order("created_at"),
+      supabase
+        .from("profiles")
+        .select("id, full_name, cnpj, phone, website, address, created_at")
+        .eq("role", "empresa")
+        .eq("approved", true)
+        .order("created_at", { ascending: false }),
+    ]);
+    setPending((pend ?? []) as PendingCompany[]);
+    setApproved((appr ?? []) as PendingCompany[]);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const decide = async (id: string, approve: boolean): Promise<void> => {
+    setBusy(id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ approved: approve })
+      .eq("id", id);
+    setBusy(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(approve ? "Empresa aprovada!" : "Empresa rejeitada.");
+    load();
+  };
+
+  // Enquanto carrega, não renderiza nada (evita flash de redirect)
+  if (loading || !profile) return null;
+  if ((profile as any).role !== "admin") return null;
+
+  return (
+    <main className="mx-auto max-w-4xl px-6 py-10 space-y-8">
+      {/* Título */}
+      <div className="flex items-center gap-3">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
+          <Building2 className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Admin</p>
+          <h1 className="font-bold text-3xl">Painel de aprovação</h1>
+        </div>
+      </div>
+
+      {/* Empresas aguardando aprovação */}
+      <section className="rounded-2xl border border-border bg-card p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <h2 className="font-medium text-white">
+            Empresas aguardando aprovação ({pending.length})
+          </h2>
+          {pending.length > 0 && (
+            <Badge className="bg-yellow-500/20 text-yellow-400">
+              {pending.length} pendente{pending.length > 1 ? "s" : ""}
+            </Badge>
+          )}
+        </div>
+
+        {pending.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhuma empresa aguardando aprovação.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {pending.map((c) => (
+              <li
+                key={c.id}
+                className="rounded-xl border border-border bg-background p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1 min-w-0">
+                    <p className="font-semibold">{c.full_name}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {c.cnpj && <span>🏢 {c.cnpj}</span>}
+                      {c.phone && <span>📞 {c.phone}</span>}
+                      {c.address && <span>📍 {c.address}</span>}
+                    </div>
+                    {c.website && (
+                      <a
+                        href={c.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" /> {c.website}
+                      </a>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Cadastro:{" "}
+                      {new Date(c.created_at).toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 shrink-0">
+                    {/* Botão Ver detalhes */}
+                    <Button
+                      
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openModal(c, true)}
+                    >
+                      <Eye className="mr-1 h-4 w-4" /> Ver
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => decide(c.id, true)}
+                      disabled={busy === c.id}
+                    >
+                      <Check className="mr-1 h-4 w-4" /> Aprovar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => decide(c.id, false)}
+                      disabled={busy === c.id}
+                    >
+                      <X className="mr-1 h-4 w-4" /> Rejeitar
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Empresas já aprovadas */}
+      <section className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="font-medium mb-4 text-white">
+          Empresas aprovadas ({approved.length})
+        </h2>
+        {approved.length === 0 ? (
+          <p className="text-sm text-white">Nenhuma empresa aprovada ainda.</p>
+        ) : (
+          <ul className="space-y-2">
+            {approved.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3"
+              >
+                <div>
+                  <p className="font-medium text-foreground">{c.full_name}</p>
+                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                    {c.cnpj && <span>{c.cnpj}</span>}
+                    {c.phone && <span>{c.phone}</span>}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {/* Botão Ver detalhes (aprovadas - sem ações de aprovar/rejeitar) */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openModal(c, false)}
+                  >
+                    <Eye className="mr-1 h-3 w-3" /> Ver
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => decide(c.id, false)}
+                    disabled={busy === c.id}
+                  >
+                    <X className="mr-1 h-3 w-3" /> Revogar
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Modal de detalhes */}
+      <CompanyDetailModal
+        company={selectedCompany}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onDecide={decide}
+        busy={busy}
+        showActions={modalShowActions}
+      />
+    </main>
+  );
+
 }

@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { Home, LogOut, ListTodo, Bell, Clock, Building2 } from "lucide-react";
+import { Home, LogOut, ListTodo, Bell, Clock, Building2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,8 +19,10 @@ type Notification = {
 };
 
 export function AppSidebar() {
-  const { profile, user, signOut } = useAuth();
   const router = useRouter();
+  const pathname = router.state.location.pathname; // <-- Adicione esta linha
+  const isAtAdminRoute = pathname.startsWith("/admin"); // <-- E esta para criar a verificação
+  const { profile, user, signOut } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -43,7 +45,7 @@ export function AppSidebar() {
         .neq("status", "concluida");
 
       if (profile.role === "adotado") taskQuery.eq("adotado_id", user.id);
-      else taskQuery.eq("company_id", user.id);
+      else if (profile.role === "empresa") taskQuery.eq("company_id", user.id);
 
       const { count } = await taskQuery;
       setPendingCount(count ?? 0);
@@ -103,20 +105,20 @@ export function AppSidebar() {
 
         // Foi adotado recentemente (company_id preenchido)
         if (profile.company_id) {
-  const { data: company } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", profile.company_id)
-    .maybeSingle();
-  const companyName = company?.full_name ?? "uma empresa";
-  notifs.push({
-    id: "adopted",
-    message: `🎉 Você foi adotado por ${companyName}!`,
-    at: new Date().toISOString(),
-    read: false,
-  });
-}
-      } else {
+          const { data: company } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", profile.company_id)
+            .maybeSingle();
+          const companyName = company?.full_name ?? "uma empresa";
+          notifs.push({
+            id: "adopted",
+            message: `🎉 Você foi adotado por ${companyName}!`,
+            at: new Date().toISOString(),
+            read: false,
+          });
+        }
+      } else if (profile.role === "empresa") {
         // Empresa: tarefas vencendo nos próximos 2 dias
         const soon = new Date();
         soon.setDate(soon.getDate() + 2);
@@ -165,18 +167,10 @@ export function AppSidebar() {
     }
   };
 
+  const isAdmin = (profile as any)?.role === "admin";
+
   return (
     <Sidebar collapsible="icon" className="bg-black text-white h-full">
-      {(profile?.role as string) === "admin" && (
-  <SidebarMenuItem>
-    <SidebarMenuButton asChild>
-      <Link to="/admin" className="flex items-center gap-2 hover:text-primary transition-colors">
-        <Building2 className="h-4 w-4" />
-        <span>Painel Admin</span>
-      </Link>
-    </SidebarMenuButton>
-  </SidebarMenuItem>
-)}
       <SidebarHeader className="bg-black text-white">
         {collapsed ? (
           <span className="grid ml-0.5 h-6 w-6 place-items-center rounded-full">
@@ -192,37 +186,38 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="bg-black text-white">
+        {/* PERFIL + HORAS — dentro de um grupo próprio */}
+        {!collapsed && profile && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              {/* card perfil */}
+              <div className="mx-1 mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                  {profile.full_name?.[0]?.toUpperCase() ?? "?"}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-white">{profile.full_name}</p>
+                  <p className="text-xs text-white/50">
+                    {profile.role === "adotado" ? "Aluno adotado" : "Empresa"}
+                  </p>
+                </div>
+              </div>
 
-  {/* PERFIL + HORAS — dentro de um grupo próprio */}
-  {!collapsed && profile && (
-    <SidebarGroup>
-      <SidebarGroupContent>
-        {/* card perfil */}
-        <div className="mx-1 mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
-            {profile.full_name?.[0]?.toUpperCase() ?? "?"}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-white">{profile.full_name}</p>
-            <p className="text-xs text-white/50">{profile.role === "adotado" ? "Aluno adotado" : "Empresa"}</p>
-          </div>
-        </div>
-
-        {/* card horas — só adotado */}
-        {profile.role === "adotado" && (
-          <div className="mx-1 mb-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-            <div className="flex items-center gap-2 text-xs text-white/50 mb-1">
-              <Clock className="h-3 w-3" />
-              <span>Horas acumuladas</span>
-            </div>
-            <p className="text-2xl font-bold text-white">
-              {totalHours.toFixed(1)}<span className="text-sm font-normal text-white/50 m-1">h</span>
-            </p>
-          </div>
+              {/* card horas — só adotado */}
+              {profile.role === "adotado" && (
+                <div className="mx-1 mb-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                  <div className="flex items-center gap-2 text-xs text-white/50 mb-1">
+                    <Clock className="h-3 w-3" />
+                    <span>Horas acumuladas</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {totalHours.toFixed(1)}<span className="text-sm font-normal text-white/50 m-1">h</span>
+                  </p>
+                </div>
+              )}
+            </SidebarGroupContent>
+          </SidebarGroup>
         )}
-      </SidebarGroupContent>
-    </SidebarGroup>
-  )}
 
         {/* NAVEGAÇÃO */}
         <SidebarGroup>
@@ -238,28 +233,50 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/tarefas" className="flex items-center gap-2 hover:text-primary transition-colors">
-                    <span className="relative">
-                      <ListTodo className="h-4 w-4" />
-                      {pendingCount > 0 && (
-                        <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+{/* PAINEL ADMIN / VOLTAR (Mostrado apenas para admin, dentro de navegação) */}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    {isAtAdminRoute ? (
+                      <Link to="/dashboard" className="flex items-center gap-2 hover:text-primary transition-colors">
+                        <ArrowLeft className="h-4 w-4" />
+                        <span>Voltar ao Dashboard</span>
+                      </Link>
+                    ) : (
+                      <Link to="/admin" className="flex items-center gap-2 hover:text-primary transition-colors">
+                        <Building2 className="h-4 w-4" />
+                        <span>Painel Admin</span>
+                      </Link>
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* TAREFAS (Escondido para admin) */}
+              {!isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link to="/tarefas" className="flex items-center gap-2 hover:text-primary transition-colors">
+                      <span className="relative">
+                        <ListTodo className="h-4 w-4" />
+                        {pendingCount > 0 && (
+                          <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+                            {pendingCount > 99 ? "99+" : pendingCount}
+                          </span>
+                        )}
+                      </span>
+                      <span>Tarefas</span>
+                      {pendingCount > 0 && !collapsed && (
+                        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                           {pendingCount > 99 ? "99+" : pendingCount}
                         </span>
                       )}
-                    </span>
-                    <span>Tarefas</span>
-                    {pendingCount > 0 && !collapsed && (
-                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                        {pendingCount > 99 ? "99+" : pendingCount}
-                      </span>
-                    )}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
-              {/* NOTIFICAÇÕES */}
+              {/* NOTIFICAÇÕES (Mantido para todos) */}
               <SidebarMenuItem>
                 <SidebarMenuButton className="hover:text-primary transition-colors" onClick={() => { setShowNotifs((v) => !v); markAllRead(); }}>
                   <span className="relative">
@@ -307,12 +324,17 @@ export function AppSidebar() {
           <SidebarGroupLabel>Conta</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={connectGoogle}>
-                  <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V7.04H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.96l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84c.87-2.6 3.3-4.5 6.16-4.5z"/></svg>
-                  <span className="hover:text-gray-400 transition-colors">{hasGoogle ? "Google conectado" : "Conectar Google"}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {/* CONECTAR GOOGLE (Escondido para admin) */}
+              {!isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={connectGoogle}>
+                    <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V7.04H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.96l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84c.87-2.6 3.3-4.5 6.16-4.5z"/></svg>
+                    <span className="hover:text-gray-400 transition-colors">{hasGoogle ? "Google conectado" : "Conectar Google"}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* SAIR (Mantido para todos) */}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   className="hover:text-destructive transition-colors"
