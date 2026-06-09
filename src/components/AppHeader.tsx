@@ -20,7 +20,7 @@ export function AppHeader() {
           {user && profile ? (
             <>
               <span className="hidden text-sm text-white sm:inline">
-                {profile.full_name} · {profile.role === "empresa" ? "Empresa" : "Adotado"}
+                {profile.full_name} · {profile.role === "empresa" ? "Empresa" : profile.role === "adotado" ? "Adotado" : "Admin"}
               </span>
               <Link to="/dashboard">
                 <Button variant="secondary" size="sm">Painel</Button>

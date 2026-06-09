@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { Home, LogOut, ListTodo, Bell, Clock, User } from "lucide-react";
+import { Home, LogOut, ListTodo, Bell, Clock, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  SidebarHeader, SidebarFooter, useSidebar, SidebarTrigger,
+  SidebarHeader, useSidebar, SidebarTrigger,
 } from "@/components/ui/sidebar";
 
 type Notification = {
@@ -167,6 +167,16 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="bg-black text-white h-full">
+      {(profile?.role as string) === "admin" && (
+  <SidebarMenuItem>
+    <SidebarMenuButton asChild>
+      <Link to="/admin" className="flex items-center gap-2 hover:text-primary transition-colors">
+        <Building2 className="h-4 w-4" />
+        <span>Painel Admin</span>
+      </Link>
+    </SidebarMenuButton>
+  </SidebarMenuItem>
+)}
       <SidebarHeader className="bg-black text-white">
         {collapsed ? (
           <span className="grid ml-0.5 h-6 w-6 place-items-center rounded-full">

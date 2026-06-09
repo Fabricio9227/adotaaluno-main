@@ -477,6 +477,21 @@ function EmpresaView() {
   const [desc, setDesc] = useState("");
   const [busy, setBusy] = useState(false);
   const [adopting, setAdopting] = useState<string | null>(null);
+  const { profile } = useAuth();
+
+   if (profile?.role === "empresa" && !profile.approved) {
+    return (
+      <div className="rounded-2xl border-2 border-dashed border-yellow-500/40 bg-card p-10 text-center">
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-yellow-500/10 text-yellow-400">
+          <Clock className="h-6 w-6" />
+        </div>
+        <p className="mt-4 font-serif text-2xl text-card-foreground">Aprovação pendente</p>
+        <p className="mt-1 text-sm text-card-foreground/70">
+          Sua empresa está aguardando aprovação pelo administrador. Você será notificado em breve.
+        </p>
+      </div>
+    );
+  }
 
   const load = async () => {
     if (!user) return;

@@ -154,6 +154,10 @@ function SignupForm() {
   const [parentNames, setParentNames] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  const [cnpj, setCnpj] = useState("");
+  const [companyPhone, setCompanyPhone] = useState("");
+  const [website, setWebsite] = useState("");
+  const [address, setAddress] = useState("");
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +169,13 @@ function SignupForm() {
       if (!parentNames.trim()) return toast.error("Informe o nome completo dos pais.");
       if (!phone.trim()) return toast.error("Informe o telefone para contato.");
     }
+    if (role === "empresa" && {
+      cnpj: cnpj.trim(),
+      phone: companyPhone.trim(),
+      website: website.trim(),
+      address: address.trim(),
+      approved: false, // sempre começa pendente
+})
 
     setBusy(true);
     const { error } = await supabase.auth.signUp({
@@ -229,6 +240,34 @@ function SignupForm() {
           <Label htmlFor="pwd2">Senha</Label>
           <Input id="pwd2" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
+
+        {role === "empresa" && (
+  <>
+    <div>
+      <Label htmlFor="cnpj">CNPJ</Label>
+      <Input id="cnpj" placeholder="00.000.000/0000-00" value={cnpj}
+        onChange={(e) => setCnpj(e.target.value)} maxLength={18} />
+    </div>
+    <div>
+      <Label htmlFor="cphone">Telefone comercial</Label>
+      <Input id="cphone" type="tel" placeholder="(11) 3000-0000" value={companyPhone}
+        onChange={(e) => setCompanyPhone(e.target.value)} maxLength={20} />
+    </div>
+    <div>
+      <Label htmlFor="website">Site / Redes sociais</Label>
+      <Input id="website" placeholder="https://suaempresa.com.br" value={website}
+        onChange={(e) => setWebsite(e.target.value)} maxLength={200} />
+    </div>
+    <div>
+      <Label htmlFor="address">Endereço</Label>
+      <Input id="address" placeholder="Rua, número, cidade" value={address}
+        onChange={(e) => setAddress(e.target.value)} maxLength={300} />
+    </div>
+    <p className="text-xs text-muted-foreground bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2">
+      ⏳ Após o cadastro, sua conta passará por aprovação antes de poder adotar alunos.
+    </p>
+  </>
+)}
 
         {/* Campos extras apenas para alunos */}
         {role === "adotado" && (

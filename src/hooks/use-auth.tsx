@@ -8,6 +8,11 @@ export type Profile = {
   role: "empresa" | "adotado";
   company_id: string | null;
   avatar_url: string | null;
+  approved: boolean;
+  cnpj: string | null;
+  phone: string | null;
+  website: string | null;
+  address: string | null;
 };
 
 type AuthCtx = {
