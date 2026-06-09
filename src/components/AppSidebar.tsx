@@ -103,19 +103,19 @@ export function AppSidebar() {
 
         // Foi adotado recentemente (company_id preenchido)
         if (profile.company_id) {
-          const { data: company } = await supabase
-            .from("companies")
-            .select("name")
-            .eq("id", profile.company_id)
-            .maybeSingle();
-          const companyName = company?.name ?? "a empresa";
-          notifs.push({
-            id: "adopted",
-            message: `🎉 Você foi adotado pela empresa ${companyName}`,
-            at: new Date().toISOString(),
-            read: false,
-          });
-        }
+  const { data: company } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", profile.company_id)
+    .maybeSingle();
+  const companyName = company?.full_name ?? "uma empresa";
+  notifs.push({
+    id: "adopted",
+    message: `🎉 Você foi adotado por ${companyName}!`,
+    at: new Date().toISOString(),
+    read: false,
+  });
+}
       } else {
         // Empresa: tarefas vencendo nos próximos 2 dias
         const soon = new Date();
@@ -206,7 +206,7 @@ export function AppSidebar() {
               <span>Horas acumuladas</span>
             </div>
             <p className="text-2xl font-bold text-white">
-              {totalHours.toFixed(1)}<span className="text-sm font-normal text-white/50">h</span>
+              {totalHours.toFixed(1)}<span className="text-sm font-normal text-white/50 m-1">h</span>
             </p>
           </div>
         )}
