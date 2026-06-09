@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { TierBadge, TIER_META, type Tier } from "@/components/TierBadge";
-import { Clock, DollarSign, Users, FileText, Check, X, Paperclip, Camera, Lock, HandHeart } from "lucide-react";
+import { Clock, DollarSign, Users, FileText, Check, X, Paperclip, Camera, Lock, HandHeart, GraduationCap } from "lucide-react";
 import { Building2, ExternalLink, Eye} from "lucide-react";
 import { type PendingCompany } from "./admin.tsx"
 import { CompanyDetailModal } from "@/components/CompanyDetailModal.tsx"
@@ -849,25 +849,44 @@ function EmpresaView() {
 
 /* ---------------- Administrador ---------------- */
 
+type AdminStudent = {
+  id: string;
+  full_name: string;
+  company_id: string | null;
+  created_at: string;
+  totalHours: number;
+  latestIncome: {
+    amount: number;
+    status: string;
+    tier: string;
+    document_url: string;
+  } | null;
+};
+
 function AdminView() {
-const { profile, loading } = useAuth() as any;
+  const [viewingStudent, setViewingStudent] = useState<AdminStudent | any>(null);
+  const { profile, loading } = useAuth() as any;
   const navigate = useNavigate();
 
-  // Só redireciona depois que o profile terminou de carregar
+  // Controle de Abas
+  const [activeTab, setActiveTab] = useState<"empresas" | "alunos">("empresas");
+
+  // Estados
+  const [pending, setPending] = useState<PendingCompany[]>([]);
+  const [approved, setApproved] = useState<PendingCompany[]>([]);
+  const [students, setStudents] = useState<AdminStudent[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  // Modal de Empresa
+  const [selectedCompany, setSelectedCompany] = useState<PendingCompany | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalShowActions, setModalShowActions] = useState(false);
+
   useEffect(() => {
     if (!loading && profile && profile.role !== "admin") {
       navigate({ to: "/dashboard" });
     }
-  }, [profile, loading]);
-
-  const [pending, setPending] = useState<PendingCompany[]>([]);
-  const [approved, setApproved] = useState<PendingCompany[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
-
-  // Modal state
-  const [selectedCompany, setSelectedCompany] = useState<PendingCompany | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalShowActions, setModalShowActions] = useState(false);
+  }, [profile, loading, navigate]);
 
   const openModal = (company: PendingCompany, showActions: boolean) => {
     setSelectedCompany(company);
@@ -876,22 +895,42 @@ const { profile, loading } = useAuth() as any;
   };
 
   const load = async () => {
-    const [{ data: pend }, { data: appr }] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, full_name, cnpj, phone, website, address, created_at")
-        .eq("role", "empresa")
-        .eq("approved", false)
-        .order("created_at"),
-      supabase
-        .from("profiles")
-        .select("id, full_name, cnpj, phone, website, address, created_at")
-        .eq("role", "empresa")
-        .eq("approved", true)
-        .order("created_at", { ascending: false }),
+    // Fazemos todas as buscas em paralelo para ser super rápido
+    const [
+      { data: pend }, 
+      { data: appr }, 
+      { data: alunosRaw }, 
+      { data: horasRaw }, 
+      { data: rendasRaw }
+    ] = await Promise.all([
+      supabase.from("profiles").select("id, full_name, cnpj, phone, website, address, created_at").eq("role", "empresa").eq("approved", false).order("created_at"),
+      supabase.from("profiles").select("id, full_name, cnpj, phone, website, address, created_at").eq("role", "empresa").eq("approved", true).order("created_at", { ascending: false }),
+      supabase.from("profiles").select("*").eq("role", "adotado").order("full_name"),
+      supabase.from("volunteer_hours").select("adotado_id, hours"),
+      supabase.from("income_submissions").select("user_id, amount, status, tier, document_url").order("submitted_at", { ascending: false })
     ]);
+
     setPending((pend ?? []) as PendingCompany[]);
     setApproved((appr ?? []) as PendingCompany[]);
+
+    // Processa os dados dos alunos cruzando com horas e rendas
+    const processedStudents = (alunosRaw || []).map((aluno) => {
+      // Soma todas as horas desse aluno
+      const totalHrs = (horasRaw || [])
+        .filter((h) => h.adotado_id === aluno.id)
+        .reduce((acc, curr) => acc + Number(curr.hours), 0);
+
+      // Pega o envio de renda mais recente (como já ordenamos na query, o find pega o primeiro/mais novo)
+      const latestInc = (rendasRaw || []).find((r) => r.user_id === aluno.id);
+
+      return {
+        ...aluno,
+        totalHours: totalHrs,
+        latestIncome: latestInc || null,
+      };
+    });
+
+    setStudents(processedStudents as AdminStudent[]);
   };
 
   useEffect(() => {
@@ -900,10 +939,7 @@ const { profile, loading } = useAuth() as any;
 
   const decide = async (id: string, approve: boolean): Promise<void> => {
     setBusy(id);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ approved: approve })
-      .eq("id", id);
+    const { error } = await supabase.from("profiles").update({ approved: approve }).eq("id", id);
     setBusy(null);
     if (error) {
       toast.error(error.message);
@@ -913,150 +949,217 @@ const { profile, loading } = useAuth() as any;
     load();
   };
 
-  // Enquanto carrega, não renderiza nada (evita flash de redirect)
+  const openDocument = async (path: string) => {
+    const { data, error } = await supabase.storage.from("income-proofs").createSignedUrl(path, 60);
+    if (error || !data) return toast.error("Não foi possível abrir o arquivo.");
+    window.open(data.signedUrl, "_blank");
+  };
+
   if (loading || !profile) return null;
   if ((profile as any).role !== "admin") return null;
 
+  // Filtra os alunos para exibição
+  const adoptedStudents = students.filter(s => s.company_id !== null);
+  const waitingStudents = students.filter(s => s.company_id === null);
+
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10 space-y-8">
-      {/* Título */}
-      <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-          <Building2 className="h-5 w-5" />
-        </span>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Admin</p>
-          <h1 className="font-bold text-3xl">Painel de aprovação</h1>
-        </div>
+    <main className="mx-auto max-w-5xl px-6  space-y-8 animate-fade-up">
+
+      {/* Navegação de Abas Personalizada */}
+      <div className="flex gap-2 border-b border-border pb-px">
+        <button
+          onClick={() => setActiveTab("empresas")}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+            activeTab === "empresas" 
+              ? "border-primary text-primary" 
+              : "border-transparent text-muted-foreground hover:text-primary"
+          }`}
+        >
+          <Building2 className="h-4 w-4" />
+          Gestão de Empresas
+          {pending.length > 0 && (
+            <span className="ml-1 rounded-full bg-yellow-500 px-2 py-0.5 text-[10px] font-bold text-black">
+              {pending.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("alunos")}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+            activeTab === "alunos" 
+              ? "border-primary text-primary" 
+              : "border-transparent text-muted-foreground hover:text-primary"
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          Desempenho dos Alunos
+        </button>
       </div>
 
-      {/* Empresas aguardando aprovação */}
-      <section className="rounded-2xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <h2 className="font-medium text-white">
-            Empresas aguardando aprovação ({pending.length})
-          </h2>
-          {pending.length > 0 && (
-            <Badge className="bg-yellow-500/20 text-yellow-400">
-              {pending.length} pendente{pending.length > 1 ? "s" : ""}
-            </Badge>
-          )}
-        </div>
-
-        {pending.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhuma empresa aguardando aprovação.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {pending.map((c) => (
-              <li
-                key={c.id}
-                className="rounded-xl border border-border bg-background p-4"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1 min-w-0">
-                    <p className="font-semibold">{c.full_name}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      {c.cnpj && <span>🏢 {c.cnpj}</span>}
-                      {c.phone && <span>📞 {c.phone}</span>}
-                      {c.address && <span>📍 {c.address}</span>}
+      {/* ================= ABA DE EMPRESAS ================= */}
+      {activeTab === "empresas" && (
+        <div className="space-y-8 animate-fade-up">
+          {/* Empresas aguardando aprovação */}
+          <section className="rounded-2xl border border-border bg-card p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <h2 className="font-medium text-white">Empresas aguardando aprovação ({pending.length})</h2>
+            </div>
+            {pending.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma empresa aguardando aprovação.</p>
+            ) : (
+              <ul className="space-y-3">
+                {pending.map((c) => (
+                  <li key={c.id} className="rounded-xl border border-border bg-background p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1 min-w-0">
+                        <p className="font-semibold text-black">{c.full_name}</p>
+                        <p className="text-xs text-muted-foreground">Cadastro: {new Date(c.created_at).toLocaleDateString("pt-BR")}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" variant="outline" onClick={() => openModal(c, true)}>
+                          <Eye className="mr-1 h-4 w-4" /> Ver
+                        </Button>
+                        <Button size="sm" onClick={() => decide(c.id, true)} disabled={busy === c.id}>
+                          <Check className="mr-1 h-4 w-4" /> Aprovar
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => decide(c.id, false)} disabled={busy === c.id}>
+                          <X className="mr-1 h-4 w-4" /> Rejeitar
+                        </Button>
+                      </div>
                     </div>
-                    {c.website && (
-                      <a
-                        href={c.website}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Empresas já aprovadas */}
+          <section className="rounded-2xl border border-border bg-card p-6">
+            <h2 className="font-medium mb-4 text-white">Empresas aprovadas ({approved.length})</h2>
+            {approved.length === 0 ? (
+              <p className="text-sm text-white">Nenhuma empresa aprovada ainda.</p>
+            ) : (
+              <ul className="space-y-2">
+                {approved.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                    <p className="font-medium text-black">{c.full_name}</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openModal(c, false)}>
+                        <Eye className="mr-1 h-3 w-3" /> Ver
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => decide(c.id, false)} disabled={busy === c.id}>
+                        <X className="mr-1 h-3 w-3" /> Revogar
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      )}
+
+     {/* ================= ABA DE ALUNOS ================= */}
+      {activeTab === "alunos" && (
+        <div className="space-y-8 animate-fade-up">
+          {/* Alunos Adotados */}
+          <section className="rounded-2xl border border-border bg-card p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-primary" />
+              <h2 className="font-medium text-white">Alunos Adotados ({adoptedStudents.length})</h2>
+            </div>
+            {adoptedStudents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum aluno foi adotado ainda.</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {adoptedStudents.map(student => (
+                  <div key={student.id} className="rounded-xl border border-border bg-background p-4 flex flex-col justify-between gap-4">
+                    <div>
+                      <p className="font-bold text-black">{student.full_name}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                          <Clock className="mr-1 h-3 w-3" /> {student.totalHours.toFixed(1)}h de Estágio
+                        </Badge>
+                        {student.latestIncome ? (
+                          <Badge variant="outline" className="bg-white/5 text-black">
+                            Categoria: {student.latestIncome.tier.toUpperCase()}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20">
+                            Sem Renda
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    {/* Botões de Ação */}
+                    <div className="flex flex-col gap-2">
+                      {student.latestIncome?.document_url && (
+                        <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => openDocument(student.latestIncome!.document_url)}>
+                          <FileText className="mr-2 h-3 w-3" /> Ver último comprovante
+                        </Button>
+                      )}
+                      <Button 
+                        size="sm" 
+                        variant="secondary" 
+                        className="w-full text-xs"
+                        onClick={async () => {
+                          const { data } = await (supabase as any).rpc("get_user_email", { user_id: student.id });
+                          const email = typeof data === "string" ? data : null;
+                          setViewingStudent({ ...student, email });
+                        }}
                       >
-                        <ExternalLink className="h-3 w-3" /> {c.website}
-                      </a>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Cadastro:{" "}
-                      {new Date(c.created_at).toLocaleDateString("pt-BR")}
-                    </p>
+                        <Eye className="mr-2 h-3 w-3" /> Ver informações
+                      </Button>
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+          </section>
 
-                  <div className="flex gap-2 shrink-0">
-                    {/* Botão Ver detalhes */}
-                    <Button
-                      
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openModal(c, true)}
-                    >
-                      <Eye className="mr-1 h-4 w-4" /> Ver
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => decide(c.id, true)}
-                      disabled={busy === c.id}
-                    >
-                      <Check className="mr-1 h-4 w-4" /> Aprovar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => decide(c.id, false)}
-                      disabled={busy === c.id}
-                    >
-                      <X className="mr-1 h-4 w-4" /> Rejeitar
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          {/* Alunos na Lista de Espera */}
+          <section className="rounded-2xl border border-border bg-card p-6 opacity-80 hover:opacity-100 transition-opacity">
+            <div className="mb-4 flex items-center gap-2">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <h2 className="font-medium text-white">Lista de Espera ({waitingStudents.length})</h2>
+            </div>
+            {waitingStudents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Não há alunos aguardando adoção.</p>
+            ) : (
+              <ul className="space-y-2">
+                {waitingStudents.map(student => (
+                  <li key={student.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-background px-4 py-3">
+                    <p className="font-medium text-black">{student.full_name}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {student.latestIncome ? `R$ ${student.latestIncome.amount.toFixed(2)}` : "Renda pendente"}
+                      </span>
+                      {student.latestIncome?.document_url && (
+                        <Button size="sm" variant="ghost" onClick={() => openDocument(student.latestIncome!.document_url)}>
+                          <FileText className="h-4 w-4 text-primary" />
+                        </Button>
+                      )}
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={async () => {
+                          const { data } = await (supabase as any).rpc("get_user_email", { user_id: student.id });
+                          const email = typeof data === "string" ? data : null;
+                          setViewingStudent({ ...student, email });
+                        }}
+                      >
+                        <Eye className="mr-1 h-3 w-3" /> Info
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      )}
 
-      {/* Empresas já aprovadas */}
-      <section className="rounded-2xl border border-border bg-card p-6">
-        <h2 className="font-medium mb-4 text-white">
-          Empresas aprovadas ({approved.length})
-        </h2>
-        {approved.length === 0 ? (
-          <p className="text-sm text-white">Nenhuma empresa aprovada ainda.</p>
-        ) : (
-          <ul className="space-y-2">
-            {approved.map((c) => (
-              <li
-                key={c.id}
-                className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3"
-              >
-                <div>
-                  <p className="font-medium text-foreground">{c.full_name}</p>
-                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                    {c.cnpj && <span>{c.cnpj}</span>}
-                    {c.phone && <span>{c.phone}</span>}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {/* Botão Ver detalhes (aprovadas - sem ações de aprovar/rejeitar) */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openModal(c, false)}
-                  >
-                    <Eye className="mr-1 h-3 w-3" /> Ver
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => decide(c.id, false)}
-                    disabled={busy === c.id}
-                  >
-                    <X className="mr-1 h-3 w-3" /> Revogar
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* Modal de detalhes */}
+      {/* Modal de detalhes (Empresas) */}
       <CompanyDetailModal
         company={selectedCompany}
         open={modalOpen}
@@ -1065,7 +1168,50 @@ const { profile, loading } = useAuth() as any;
         busy={busy}
         showActions={modalShowActions}
       />
+
+      {/* Modal de informações do aluno */}
+      {viewingStudent && createPortal (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <h3 className="font-serif text-xl text-white">Informações do aluno</h3>
+            <p className="mt-1 text-xs text-muted-foreground mb-4">
+              Dados completos extraídos do banco.
+            </p>
+            <ul className="space-y-3 text-sm">
+              <li className="flex flex-col gap-0.5">
+                <span className="text-xs uppercase tracking-wider text-gray-400 font-bold">Nome completo</span>
+                <span className="text-white font-medium">{viewingStudent.full_name}</span>
+              </li>
+              <li className="flex flex-col gap-0.5">
+                <span className="text-xs uppercase tracking-wider text-gray-400 font-bold">Data de nascimento</span>
+                <span className="text-white font-medium">
+                  {viewingStudent.birth_date
+                    ? new Date(viewingStudent.birth_date).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+                    : "Não informado"}
+                </span>
+              </li>
+              <li className="flex flex-col gap-0.5">
+                <span className="text-xs uppercase tracking-wider text-gray-400 font-bold">Nome completo dos pais</span>
+                <span className="text-white font-medium">{viewingStudent.parent_names ?? "Não informado"}</span>
+              </li>
+              <li className="flex flex-col gap-0.5">
+                <span className="text-xs uppercase tracking-wider text-gray-400 font-bold">Telefone para contato</span>
+                <span className="text-white font-medium">{viewingStudent.phone ?? "Não informado"}</span>
+              </li>
+              <li className="flex flex-col gap-0.5">
+                <span className="text-xs uppercase tracking-wider text-gray-400 font-bold">E-mail de cadastro</span>
+                <span className="text-white font-medium">{viewingStudent.email ?? "Não informado"}</span>
+              </li>
+            </ul>
+            <div className="mt-6 flex justify-end">
+              <Button variant="outline" onClick={() => setViewingStudent(null)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </main>
   );
-
 }
