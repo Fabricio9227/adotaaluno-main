@@ -8,22 +8,22 @@ export function AppHeader() {
   const router = useRouter();
 
   return (
-    <header className="border-b border-border bg-black text-white">
+    <header className="border-b border-border bg-cover bg-center bg-no-repeat w-full " style={{ backgroundImage: "url('/src/images/BACKGROUND SITE (1).png')" }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link to="/" className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <GraduationCap className="h-5 w-5" />
+          <span className="grid h-9 w-9 place-items-center rounded-lg text-primary-foreground">
+            <img src="./src/images/LOGO ADOTE UM COLLEGER (1).png" alt="Logo" className="" />
           </span>
-          <span className="font-serif text-xl">Adota Aluno</span>
+          <span className="text-xl text-white font-bold">Adota Aluno</span>
         </Link>
         <nav className="flex items-center gap-3">
           {user && profile ? (
             <>
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                {profile.full_name} · {profile.role === "empresa" ? "Empresa" : "Adotado"}
+              <span className="hidden text-sm text-white sm:inline">
+                {profile.full_name} · {profile.role === "empresa" ? "Empresa" : profile.role === "adotado" ? "Adotado" : "Admin"}
               </span>
               <Link to="/dashboard">
-                <Button variant="ghost" size="sm">Painel</Button>
+                <Button variant="secondary" size="sm">Painel</Button>
               </Link>
               <Button
                 size="sm"

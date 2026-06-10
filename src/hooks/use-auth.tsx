@@ -8,6 +8,11 @@ export type Profile = {
   role: "empresa" | "adotado";
   company_id: string | null;
   avatar_url: string | null;
+  approved: boolean;
+  cnpj: string | null;
+  phone: string | null;
+  website: string | null;
+  address: string | null;
 };
 
 type AuthCtx = {
@@ -29,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = async (uid: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("id, full_name, role, company_id, avatar_url")
+      .select("*")
       .eq("id", uid)
       .maybeSingle();
     setProfile((data as Profile) ?? null);
@@ -42,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTimeout(() => loadProfile(s.user.id), 0);
       } else {
         setProfile(null);
-      }
+      }       
     });
 
     supabase.auth.getSession().then(({ data }) => {

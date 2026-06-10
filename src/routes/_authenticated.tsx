@@ -12,9 +12,14 @@ function AuthGuard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && !user) navigate({ to: "/auth" });
-  }, [user, loading, navigate]);
+useEffect(() => {
+  if (!loading && !user) {
+    navigate({ to: "/auth" });
+  } else if (!loading && user && window.location.pathname === "/") {
+    // BIZU: Se o cara tá logado e tá na Home, empurra ele pro Dashboard real
+    navigate({ to: "/dashboard" });
+  }
+}, [user, loading, navigate]);
 
   if (loading || !user) {
     return (
@@ -24,9 +29,9 @@ function AuthGuard() {
     );
   }
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={false} >
       {/* Mobile floating trigger: visible only on small screens */}
-      <div className="fixed left-4 top-4 z-50 md:hidden">
+      <div className="fixed left-4 top-4 z-50 md:hidden ">
         <SidebarTrigger />
       </div>
       <div className="flex min-h-screen w-full">
