@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from '@tanstack/start/config'
 
-// Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-// @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
-  server: ({ preset: 'vercel' } as any), // <-- isso aqui é o essencial
+  server: {
+    preset: 'vercel',
+  },
 })
