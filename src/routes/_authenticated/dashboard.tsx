@@ -276,7 +276,7 @@ const { error } = await supabase.from("income_submissions").insert({
   return (
     <div className="space-y-6">
       {/* Profile card */}
-      <section className=" animate-fade-up rounded-2xl border border-border p-6 border-b bg-cover bg-center w-full" style={{ backgroundImage: "url('/src/images/BACKGROUND SITE (1).png')" }}>
+      <section className=" animate-fade-up rounded-2xl border border-border p-6 border-b bg-cover bg-center w-full" style={{ backgroundImage: "/background-site.png" }}>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
           <div className="relative">
             <Avatar className="h-24 w-24 border-4 border-primary/30">
@@ -605,7 +605,7 @@ function EmpresaView() {
 
   return (
     <div className="space-y-6">
-      <section className="animate-fade-up rounded-2xl border border-border bg-card p-6 bg-cover bg-center w-full" style={{ backgroundImage: "url('/src/images/BACKGROUND SITE (1).png')" }}>
+      <section className="animate-fade-up rounded-2xl border border-border bg-card p-6 bg-cover bg-center w-full" style={{ backgroundImage: "/background-site.png" }}>
   <div className="mb-4 flex items-center gap-2 text-card-foreground/70">
     <HandHeart className="h-4 w-4" />
     <h2 className="font-medium">Lista de espera ({waiting.length})</h2>
