@@ -8,7 +8,7 @@ export function AppHeader() {
   const router = useRouter();
 
   return (
-    <header className="border-b border-border bg-cover bg-center bg-no-repeat w-full " style={{ backgroundImage: "/background-site" }}>
+    <header className="border-b border-border bg-cover bg-center bg-no-repeat w-full " style={{ backgroundImage: "url('/background-site.png')" }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link to="/" className="flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-lg text-primary-foreground">
