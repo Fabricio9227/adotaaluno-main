@@ -78,7 +78,7 @@ function Index() {
           ))}
         </section>
       </main>
-      <footer className="border-t border-border py-8 text-center text-sm text-white bg-cover bg-center bg-no-repeat w-full" style={{ backgroundImage: "/background-site.png" }}>
+      <footer className="border-t border-border py-8 text-center text-sm text-white bg-cover bg-center bg-no-repeat w-full" style={{ backgroundImage: "./public/background-site.png" }}>
         © {new Date().getFullYear()} Adota Aluno
       </footer>
     </div>
